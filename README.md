@@ -49,7 +49,7 @@ Haiku には次の基準を渡しています。2つの段階で迷ったら低�
 
 「2」「Bで」のように、前の回答の選択肢から1つを選ぶだけの短い返事は、返事そのものではなく、選ばれた選択肢の作業の重さで判定します。選択肢は前の回答の末尾 400 字から読むので、それより前にある選択肢は Haiku から見えません。
 
-基準の文は [hooks/judge.ts](hooks/judge.ts) の `RULES` にあります。
+基準の文は [auto-change-effort/hooks/judge.ts](auto-change-effort/hooks/judge.ts) の `RULES` にあります。
 
 ## やらないこと
 
