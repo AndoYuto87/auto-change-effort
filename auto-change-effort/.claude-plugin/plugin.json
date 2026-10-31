@@ -1,0 +1,1 @@
+{ "name": "auto-change-effort", "version": "0.1.0", "description": "メインスレッドの effort を依頼ごとに Haiku で判定して low/medium/high/xhigh から選ぶ", "author": { "name": "AndoYuto87" }, "license": "MIT" }

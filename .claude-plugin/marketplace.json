@@ -1,0 +1,6 @@
+{
+  "name": "auto-change-effort",
+  "description": "auto-change-effort を配るマーケットプレイス",
+  "owner": { "name": "AndoYuto87" },
+  "plugins": [{ "name": "auto-change-effort", "source": "./auto-change-effort" }]
+}
