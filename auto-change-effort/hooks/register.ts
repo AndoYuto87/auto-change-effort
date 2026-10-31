@@ -18,6 +18,7 @@ let judged: Level | undefined // 前のターンで判定した段階(失敗し�
 let level: Level | undefined // このターンで使う段階。undefined なら書き換えない
 let isRaised = false // このターンを持ち越しで1段上げたか
 let shouldRaise = false // 次のターンを1段上げるか
+let isNotice = false // このターンは通知か。通知は持ち越しを使わず、決めもしない(D-032)
 let previous = '' // 前の回答。判定の入力に末尾を添える
 let steps = 0
 let errors = 0
@@ -86,12 +87,14 @@ export const register: Register = on => {
 
     // 通知と、入力の無いターンは判定せず前の段階のまま
     const text = e.text.trim()
-    if (text !== '' && !text.startsWith(NOTIFICATION)) {
+    isNotice = text.startsWith(NOTIFICATION)
+    if (text !== '' && !isNotice) {
       judged = (await judge($, text)) ?? judged
     }
-    isRaised = shouldRaise && judged !== undefined
+    // 持ち越しは次の人の依頼まで残す
+    isRaised = shouldRaise && judged !== undefined && !isNotice
     level = judged && isRaised ? raise(judged) : judged
-    shouldRaise = false
+    if (!isNotice) shouldRaise = false
     showStatus($, true)
     return next(e)
   })
@@ -111,7 +114,7 @@ export const register: Register = on => {
   }).catch(($, e, next) => next(e)) // 数え損ねてもツールは止めない
 
   on('turn.complete', async ($, e, next) => {
-    if (e.agentId === undefined && level !== undefined) {
+    if (e.agentId === undefined && level !== undefined && !isNotice) {
       shouldRaise = steps > STEP_LIMIT || errors >= ERROR_LIMIT
     }
     if (e.agentId === undefined && e.answer !== '') previous = e.answer

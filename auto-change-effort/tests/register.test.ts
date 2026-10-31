@@ -94,6 +94,23 @@ test('通知のターンは Haiku を呼ばず、前の段階のまま', async (
   expect(asked.length).toBe(n)
 })
 
+test('長引いたあとの通知のターンは上げず、次の依頼で1段上げる', async ($, on) => {
+  engine(on)
+  await $.session.start({ cwd: '/', surface: 'vscode', isInteractive: true })
+  await turn($, '直して', { steps: 11 })
+  expect(await turn($, '<task-notification>done</task-notification>')).toEqual(['low'])
+  expect(status).toBe('effort: low')
+  expect(await turn($, 'ありがとう')).toEqual(['medium'])
+})
+
+test('通知のターンが長引いても、次は上げない', async ($, on) => {
+  engine(on)
+  await $.session.start({ cwd: '/', surface: 'vscode', isInteractive: true })
+  await turn($, '依頼')
+  await turn($, '<task-notification>done</task-notification>', { steps: 11, errors: 2 })
+  expect(await turn($, 'ありがとう')).toEqual(['low'])
+})
+
 test('Haiku が間に合わなければ前の段階、初回は設定どおり', async ($, on) => {
   engine(on)
   await $.session.start({ cwd: '/', surface: 'vscode', isInteractive: true })
