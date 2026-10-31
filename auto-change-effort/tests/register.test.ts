@@ -4,20 +4,22 @@ import type { Engine } from 'claude-code/testing'
 const usage = { input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 }
 
 // 1ターン流す。steps 回モデルに聞き、errors 回ツールがエラーになる。各ステップで送られた effort を返す
+// effort を null にすると、effort を取らないモデルとして流す
 async function turn(
   $: Engine,
   text: string,
-  opts: { steps?: number; errors?: number; agentId?: string; answer?: string } = {},
+  opts: { steps?: number; errors?: number; agentId?: string; answer?: string; effort?: null } = {},
 ): Promise<(string | number | undefined)[]> {
   const turnId = `t-${Math.random()}`
   const { agentId } = opts
+  const effort = opts.effort === null ? undefined : 'high'
   await $.turn.start({ text, turnId, agentId })
   for (let i = 0; i < (opts.errors ?? 0); i++) {
     await $.tool.call({ tool: 'Bash', command: 'false', agentId })
   }
   const sent: (string | number | undefined)[] = []
   for (let i = 0; i < (opts.steps ?? 1); i++) {
-    const stream = $.turn.step({ turnId, index: i, model: 'opus', effort: 'high', messageCount: 1, agentId })
+    const stream = $.turn.step({ turnId, index: i, model: 'opus', effort, messageCount: 1, agentId })
     for await (const _ of stream) void _
     sent.push(lastEffort)
   }
@@ -161,4 +163,50 @@ test('前の回答の末尾を判定に添える', async ($, on) => {
   await turn($, '案を出して', { answer: '1. 用語を足す\n2. 全体を監査する' })
   await turn($, '2')
   expect(asked[asked.length - 1].includes('2. 全体を監査する')).toBe(true)
+})
+
+test('effort を取らないモデルでは触らない', async ($, on) => {
+  engine(on)
+  await $.session.start({ cwd: '/', surface: 'vscode', isInteractive: true })
+  expect(await turn($, '依頼', { effort: null })).toEqual([undefined])
+})
+
+test('往復がちょうど10回なら次を上げない', async ($, on) => {
+  engine(on)
+  await $.session.start({ cwd: '/', surface: 'vscode', isInteractive: true })
+  await turn($, '直して', { steps: 10 })
+  expect(await turn($, 'ありがとう')).toEqual(['low'])
+})
+
+test('入力の無いターンは Haiku を呼ばず、前の段階のまま', async ($, on) => {
+  engine(on)
+  await $.session.start({ cwd: '/', surface: 'vscode', isInteractive: true })
+  reply = 'medium'
+  await turn($, 'この差分をレビューして')
+  const n = asked.length
+  expect(await turn($, '')).toEqual(['medium'])
+  expect(asked.length).toBe(n)
+})
+
+test('off にすると持ち越しが消える', async ($, on) => {
+  engine(on)
+  await $.session.start({ cwd: '/', surface: 'vscode', isInteractive: true })
+  const run = (args: string) =>
+    $.command.run({ command: 'auto-change-effort', args, origin: { kind: 'composer' }, presentation: { layout: 'main', columns: 80 } } as never)
+  await turn($, '直して', { steps: 11 })
+  await run('off')
+  await run('on')
+  expect(await turn($, 'ありがとう')).toEqual(['low'])
+})
+
+test('答えが空のターンとサブエージェントの答えでは、前の回答を書き換えない', async ($, on) => {
+  engine(on)
+  await $.session.start({ cwd: '/', surface: 'vscode', isInteractive: true })
+  await turn($, '案を出して', { answer: '1. 用語を足す\n2. 全体を監査する' })
+  await turn($, '止めた依頼', { answer: '' })
+  await turn($, 'サブの依頼', { agentId: 'a1', answer: 'サブの報告' })
+  await turn($, '2')
+  const last = asked[asked.length - 1]
+  expect(last.includes('2. 全体を監査する')).toBe(true)
+  expect(last.includes('サブの報告')).toBe(false)
 })
